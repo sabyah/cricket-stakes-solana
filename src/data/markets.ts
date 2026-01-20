@@ -228,4 +228,17 @@ export const politicalMarkets: Market[] = [
     trending: true,
     isLive: true,
   },
+  {
+    id: "p9",
+    title: "Ron DeSantis to resign as Florida Governor",
+    description: "Will Ron DeSantis resign as Governor of Florida before the end of 2026?",
+    category: "US Politics",
+    yesPrice: 0.18,
+    noPrice: 0.82,
+    volume: 2750000,
+    liquidity: 890000,
+    endDate: "2026-12-31",
+    trending: true,
+    isLive: true,
+  },
 ];
