@@ -1,8 +1,11 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { User, Session } from "@supabase/supabase-js";
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 
 export type WalletType = "phantom" | "metamask" | "coinbase" | "google" | null;
+
+interface User {
+  id: string;
+  email: string;
+}
 
 interface WalletContextType {
   isConnected: boolean;
@@ -13,12 +16,21 @@ interface WalletContextType {
   disconnect: () => void;
   isConnecting: boolean;
   user: User | null;
-  session: Session | null;
+  session: object | null;
   showDepositModal: boolean;
   setShowDepositModal: (show: boolean) => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+function generateMockAddress(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
+  let result = '';
+  for (let i = 0; i < 43; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
@@ -27,74 +39,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<object | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const [hasShownDepositModal, setHasShownDepositModal] = useState(false);
-
-  // Listen for auth state changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Only show deposit modal on fresh sign in (not session restoration)
-          if (event === 'SIGNED_IN' && !hasShownDepositModal) {
-            // Check if this is a fresh OAuth callback by looking at URL
-            const isOAuthCallback = window.location.hash.includes('access_token') || 
-                                     window.location.search.includes('code=');
-            if (isOAuthCallback) {
-              setShowDepositModal(true);
-              setHasShownDepositModal(true);
-            }
-          }
-          // Fetch user's embedded wallet after auth
-          setTimeout(() => {
-            fetchUserWallet(session.user.id);
-          }, 0);
-        } else {
-          // Clear wallet state on logout
-          setWalletAddress(null);
-          setWalletType(null);
-          setIsConnected(false);
-          setBalance(0);
-          setHasShownDepositModal(false);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserWallet(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [hasShownDepositModal]);
-
-  const fetchUserWallet = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_wallets" as any)
-        .select("*")
-        .eq("user_id", userId)
-        .eq("is_primary", true)
-        .maybeSingle();
-
-      if (data && !error) {
-        setWalletAddress((data as any).wallet_address);
-        setWalletType("google");
-        setIsConnected(true);
-        setBalance(Math.random() * 100); // Mock balance
-      }
-    } catch (err) {
-      console.error("Error fetching wallet:", err);
-    }
-  };
 
   const connect = useCallback(async (type: WalletType) => {
     if (!type) return;
@@ -105,16 +51,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       let address: string | null = null;
 
       if (type === "google") {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: `${window.location.origin}/`,
-          },
-        });
-        
-        if (error) throw error;
-        // Auth state listener will handle the rest
-        return;
+        // Mock Google wallet connection
+        await new Promise(resolve => setTimeout(resolve, 800));
+        address = generateMockAddress();
+        setUser({ id: 'mock-google-user', email: 'user@gmail.com' });
+        setSession({});
       } else if (type === "phantom") {
         const phantom = (window as any).phantom?.solana;
         
@@ -153,6 +94,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setWalletType(type);
         setIsConnected(true);
         setBalance(Math.random() * 100);
+        if (!user) {
+          setUser({ id: 'mock-wallet-user', email: 'wallet@user.com' });
+        }
       }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
@@ -160,25 +104,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [user]);
 
-  const disconnect = useCallback(async () => {
-    // Sign out from Supabase if logged in with Google
-    if (user) {
-      await supabase.auth.signOut();
-    }
-
+  const disconnect = useCallback(() => {
     setIsConnected(false);
     setWalletAddress(null);
     setWalletType(null);
     setBalance(0);
+    setUser(null);
+    setSession(null);
 
     // Disconnect from Phantom if connected
     const phantom = (window as any).phantom?.solana;
     if (phantom?.isConnected) {
       phantom.disconnect();
     }
-  }, [user]);
+  }, []);
 
   return (
     <WalletContext.Provider

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,16 +12,11 @@ import {
   ExternalLink,
   Clock,
   TrendingUp,
-  CheckCircle,
   Plus,
   Sparkles,
-  X,
-  Loader2
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useWallet } from "@/contexts/WalletContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const defaultCategories = ["crypto", "technology", "finance", "politics", "sports", "science"];
 
@@ -35,10 +30,39 @@ const categoryColors: Record<string, string> = {
   news: "bg-gray-500/10 text-gray-500"
 };
 
+// Mock news data
+const mockNewsTopics = [
+  {
+    id: "1",
+    headline: "Bitcoin ETF sees record inflows as institutional adoption accelerates",
+    category: "crypto",
+    source_name: "CoinDesk",
+    source_url: "https://coindesk.com",
+    suggested_market_title: "Will Bitcoin ETF daily inflows exceed $1B in January 2026?",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "2",
+    headline: "Federal Reserve signals potential rate cuts in Q2 2026",
+    category: "finance",
+    source_name: "Bloomberg",
+    source_url: "https://bloomberg.com",
+    suggested_market_title: "Will the Fed cut rates before June 2026?",
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: "3",
+    headline: "Apple announces new AI features for iPhone 18",
+    category: "technology",
+    source_name: "TechCrunch",
+    source_url: "https://techcrunch.com",
+    suggested_market_title: "Will Apple's AI features be available at iPhone 18 launch?",
+    created_at: new Date(Date.now() - 7200000).toISOString(),
+  },
+];
+
 export const NewsIntegration = () => {
   const { toast } = useToast();
-  const { user } = useWallet();
-  const queryClient = useQueryClient();
   const [autoCreateEnabled, setAutoCreateEnabled] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["crypto", "technology", "finance"]);
@@ -46,144 +70,14 @@ export const NewsIntegration = () => {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [rssUrl, setRssUrl] = useState("");
   const [rssSources, setRssSources] = useState<string[]>([]);
-
-  // Fetch news topics from database
-  const { data: newsTopics = [], isLoading: newsLoading, refetch: refetchNews } = useQuery({
-    queryKey: ["news-topics"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("news_topics")
-        .select("*")
-        .eq("is_processed", false)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  // Validation constants matching database constraints
-  const TITLE_MIN_LENGTH = 10;
-  const TITLE_MAX_LENGTH = 200;
-  const DESCRIPTION_MAX_LENGTH = 5000;
-  const VALID_CATEGORIES = ["crypto", "politics", "sports", "entertainment", "technology", "finance", "science", "general", "news"];
-
-  // Helper function to sanitize and truncate strings
-  const sanitizeString = (str: string | null | undefined, maxLength: number): string => {
-    if (!str) return '';
-    return str.trim().substring(0, maxLength);
-  };
-
-  // Create market from news mutation
-  const createMarketMutation = useMutation({
-    mutationFn: async (newsItem: any) => {
-      if (!user?.id) throw new Error("Not authenticated");
-      
-      const endDate = newsItem.suggested_end_date 
-        ? new Date(newsItem.suggested_end_date)
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
-
-      // Validate end date is in future
-      if (endDate <= new Date()) {
-        throw new Error("End date must be in the future");
-      }
-
-      // Sanitize and validate title
-      let title = sanitizeString(newsItem.suggested_market_title || newsItem.headline, TITLE_MAX_LENGTH);
-      if (title.length < TITLE_MIN_LENGTH) {
-        title = `Will this happen: ${sanitizeString(newsItem.headline, TITLE_MAX_LENGTH - 20)}?`;
-      }
-
-      // Sanitize description
-      const rawDescription = `Based on news: "${sanitizeString(newsItem.headline, 500)}"\n\nSource: ${sanitizeString(newsItem.source_name, 100) || 'Unknown'}`;
-      const description = sanitizeString(rawDescription, DESCRIPTION_MAX_LENGTH);
-
-      // Validate category
-      const category = VALID_CATEGORIES.includes(newsItem.category) ? newsItem.category : "news";
-
-      // Sanitize URLs
-      const newsHeadline = sanitizeString(newsItem.headline, 500);
-      const newsSourceUrl = sanitizeString(newsItem.source_url, 2048);
-      
-      const { data, error } = await supabase
-        .from("user_markets")
-        .insert({
-          creator_id: user.id,
-          title,
-          description,
-          category,
-          end_date: endDate.toISOString(),
-          status: "draft",
-          news_headline: newsHeadline,
-          news_source_url: newsSourceUrl
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-
-      // Mark news topic as processed
-      await supabase
-        .from("news_topics")
-        .update({ is_processed: true, auto_created_market_id: data.id })
-        .eq("id", newsItem.id);
-
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["news-topics"] });
-      queryClient.invalidateQueries({ queryKey: ["creator-markets"] });
-      toast({
-        title: "Market created from news!",
-        description: `"${data.title}" has been created as a draft market`
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error creating market",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
+  const [newsTopics, setNewsTopics] = useState(mockNewsTopics);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     
-    // If RSS sources are configured, fetch from them first
-    if (rssSources.length > 0) {
-      try {
-        const { data, error } = await supabase.functions.invoke("fetch-rss-news", {
-          body: { rssUrls: rssSources }
-        });
-        
-        if (error) throw error;
-        
-        if (data?.inserted > 0) {
-          toast({
-            title: "RSS feeds fetched",
-            description: `Added ${data.inserted} new articles from RSS feeds`
-          });
-        } else if (data?.message) {
-          toast({
-            title: "RSS feeds checked",
-            description: data.duplicates_skipped > 0 
-              ? `${data.duplicates_skipped} articles already exist`
-              : "No new articles found"
-          });
-        }
-      } catch (error: any) {
-        console.error("Error fetching RSS:", error);
-        toast({
-          title: "Error fetching RSS feeds",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-    }
+    // Simulate refresh delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    await refetchNews();
     setIsRefreshing(false);
     toast({
       title: "News refreshed",
@@ -192,7 +86,13 @@ export const NewsIntegration = () => {
   };
 
   const handleCreateMarket = (newsItem: any) => {
-    createMarketMutation.mutate(newsItem);
+    // Remove the news item from the list
+    setNewsTopics(prev => prev.filter(n => n.id !== newsItem.id));
+    
+    toast({
+      title: "Market created from news!",
+      description: `"${newsItem.suggested_market_title || newsItem.headline}" has been created as a draft market`
+    });
   };
 
   const toggleCategory = (category: string) => {
@@ -261,7 +161,7 @@ export const NewsIntegration = () => {
   };
 
   const allCategories = [...defaultCategories, ...customCategories];
-  const filteredNews = newsTopics.filter((news: any) => 
+  const filteredNews = newsTopics.filter((news) => 
     selectedCategories.length === 0 || selectedCategories.includes(news.category)
   );
 
@@ -398,11 +298,7 @@ export const NewsIntegration = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {newsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredNews.length === 0 ? (
+          {filteredNews.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No trending news available</p>
@@ -410,7 +306,7 @@ export const NewsIntegration = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredNews.map((news: any) => (
+              {filteredNews.map((news) => (
                 <div 
                   key={news.id} 
                   className="p-4 rounded-lg border hover:border-primary/50 transition-colors group"
@@ -450,16 +346,9 @@ export const NewsIntegration = () => {
                       <Button 
                         size="sm"
                         onClick={() => handleCreateMarket(news)}
-                        disabled={createMarketMutation.isPending}
                       >
-                        {createMarketMutation.isPending ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            <Zap className="w-3 h-3 mr-1" />
-                            Create
-                          </>
-                        )}
+                        <Zap className="w-3 h-3 mr-1" />
+                        Create
                       </Button>
                       {news.source_url && (
                         <Button 
@@ -481,23 +370,23 @@ export const NewsIntegration = () => {
         </CardContent>
       </Card>
 
-      {/* Auto-created markets */}
+      {/* Auto-Created Markets Section */}
       {autoCreateEnabled && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle className="w-5 h-5 text-green-500" />
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
               Auto-Created Markets
             </CardTitle>
             <CardDescription>
-              Markets automatically generated from news headlines
+              Markets automatically created from trending news headlines
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8 text-muted-foreground">
               <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No auto-created markets yet</p>
-              <p className="text-sm">Markets will appear here when created from trending news</p>
+              <p>Auto-creation is enabled</p>
+              <p className="text-sm">New markets will appear here as they are created</p>
             </div>
           </CardContent>
         </Card>

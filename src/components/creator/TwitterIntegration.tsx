@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,94 +13,26 @@ import {
   Code, 
   RefreshCw,
   CheckCircle,
-  Copy,
-  Loader2
+  Copy
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useWallet } from "@/contexts/WalletContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+// Mock data for markets
+const mockMarkets = [
+  { id: "1", title: "Will Bitcoin reach $100k by March 2026?", yes_price: 0.65, no_price: 0.35 },
+  { id: "2", title: "Will Ethereum flip Bitcoin by 2027?", yes_price: 0.15, no_price: 0.85 },
+  { id: "3", title: "US recession in 2026?", yes_price: 0.42, no_price: 0.58 },
+];
 
 export const TwitterIntegration = () => {
   const { toast } = useToast();
-  const { user } = useWallet();
-  const queryClient = useQueryClient();
   const [twitterUsername, setTwitterUsername] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
   const [tweetContent, setTweetContent] = useState("");
-  const [selectedMarketId, setSelectedMarketId] = useState("");
+  const [selectedMarketId, setSelectedMarketId] = useState(mockMarkets[0]?.id || "");
   const [includeLink, setIncludeLink] = useState(true);
 
-  // Fetch user profile with twitter username
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id
-  });
-
-  // Fetch user's markets for sharing
-  const { data: markets = [] } = useQuery({
-    queryKey: ["creator-markets-for-twitter", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("user_markets")
-        .select("*")
-        .eq("creator_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id
-  });
-
-  // Update twitter username mutation
-  const updateTwitterMutation = useMutation({
-    mutationFn: async (username: string) => {
-      if (!user?.id) throw new Error("Not authenticated");
-      const { error } = await supabase
-        .from("profiles")
-        .update({ twitter_username: username })
-        .eq("id", user.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      toast({ title: "Twitter username saved!" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error saving username", description: error.message, variant: "destructive" });
-    }
-  });
-
-  useEffect(() => {
-    if (profile?.twitter_username) {
-      setTwitterUsername(profile.twitter_username);
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    if (markets.length > 0 && !selectedMarketId) {
-      setSelectedMarketId(markets[0].id);
-    }
-  }, [markets, selectedMarketId]);
-
-  const selectedMarket = markets.find((m: any) => m.id === selectedMarketId);
-
-  useEffect(() => {
-    if (selectedMarket) {
-      const defaultTweet = `🔮 Check out this prediction market!\n\n"${selectedMarket.title}"\n\nCurrent odds: ${(selectedMarket.yes_price * 100).toFixed(0)}% YES\n\nTrade now 👇`;
-      setTweetContent(defaultTweet);
-    }
-  }, [selectedMarket]);
+  const selectedMarket = mockMarkets.find((m) => m.id === selectedMarketId);
 
   const handleConnectTwitter = () => {
     const cleanUsername = twitterUsername.replace("@", "").trim();
@@ -108,11 +40,12 @@ export const TwitterIntegration = () => {
       toast({ title: "Please enter a Twitter username", variant: "destructive" });
       return;
     }
-    updateTwitterMutation.mutate(cleanUsername);
+    setIsConnected(true);
+    toast({ title: "Twitter username saved!" });
   };
 
   const handleDisconnect = () => {
-    updateTwitterMutation.mutate("");
+    setIsConnected(false);
     setTwitterUsername("");
   };
 
@@ -122,7 +55,7 @@ export const TwitterIntegration = () => {
       return;
     }
 
-    let fullTweet = tweetContent;
+    let fullTweet = tweetContent || `🔮 Check out this prediction market!\n\n"${selectedMarket.title}"\n\nCurrent odds: ${(selectedMarket.yes_price * 100).toFixed(0)}% YES\n\nTrade now 👇`;
     if (includeLink) {
       const marketUrl = `${window.location.origin}/market/${selectedMarket.id}`;
       fullTweet += `\n\n${marketUrl}`;
@@ -140,8 +73,6 @@ export const TwitterIntegration = () => {
     });
   };
 
-  const isConnected = !!profile?.twitter_username;
-
   const sampleEmbedCode = selectedMarket 
     ? `<div class="prediction-embed" data-market-id="${selectedMarket.id}">
   <script src="${window.location.origin}/embed.js"></script>
@@ -149,14 +80,6 @@ export const TwitterIntegration = () => {
     : `<div class="prediction-embed" data-market-id="YOUR_MARKET_ID">
   <script src="${window.location.origin}/embed.js"></script>
 </div>`;
-
-  if (profileLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -180,14 +103,14 @@ export const TwitterIntegration = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">@{profile?.twitter_username}</span>
+                    <span className="font-medium">@{twitterUsername}</span>
                     <Badge variant="secondary" className="bg-green-500/10 text-green-500">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Connected
                     </Badge>
                   </div>
                   <a 
-                    href={`https://twitter.com/${profile?.twitter_username}`}
+                    href={`https://twitter.com/${twitterUsername}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:underline"
@@ -219,18 +142,9 @@ export const TwitterIntegration = () => {
                     className="pl-8"
                   />
                 </div>
-                <Button 
-                  onClick={handleConnectTwitter}
-                  disabled={updateTwitterMutation.isPending}
-                >
-                  {updateTwitterMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Twitter className="w-4 h-4 mr-2" />
-                      Connect
-                    </>
-                  )}
+                <Button onClick={handleConnectTwitter}>
+                  <Twitter className="w-4 h-4 mr-2" />
+                  Connect
                 </Button>
               </div>
             </div>
@@ -272,15 +186,11 @@ export const TwitterIntegration = () => {
                     value={selectedMarketId}
                     onChange={(e) => setSelectedMarketId(e.target.value)}
                   >
-                    {markets.length === 0 ? (
-                      <option value="">No markets available</option>
-                    ) : (
-                      markets.map((market: any) => (
-                        <option key={market.id} value={market.id}>
-                          {market.title}
-                        </option>
-                      ))
-                    )}
+                    {mockMarkets.map((market) => (
+                      <option key={market.id} value={market.id}>
+                        {market.title}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 
@@ -335,15 +245,11 @@ export const TwitterIntegration = () => {
                     value={selectedMarketId}
                     onChange={(e) => setSelectedMarketId(e.target.value)}
                   >
-                    {markets.length === 0 ? (
-                      <option value="">No markets available</option>
-                    ) : (
-                      markets.map((market: any) => (
-                        <option key={market.id} value={market.id}>
-                          {market.title}
-                        </option>
-                      ))
-                    )}
+                    {mockMarkets.map((market) => (
+                      <option key={market.id} value={market.id}>
+                        {market.title}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -362,7 +268,7 @@ export const TwitterIntegration = () => {
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Powered by PredictX
+                        Powered by AlphaX
                       </p>
                     </div>
                   </div>
