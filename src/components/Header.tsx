@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Wallet, ChevronDown, LogOut, Copy, Check, Search, User, Zap, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WalletModal } from "@/components/WalletModal";
 import { DepositModal } from "@/components/DepositModal";
 import { useWallet } from "@/contexts/WalletContext";
+import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
 
 function formatAddress(address: string): string {
@@ -12,11 +12,27 @@ function formatAddress(address: string): string {
 }
 
 export function Header() {
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { isConnected, walletAddress, walletType, balance, disconnect, showDepositModal, setShowDepositModal } = useWallet();
+  const { login, authenticated, ready } = usePrivy();
   const navigate = useNavigate();
+
+  const handleConnect = async () => {
+    if (!ready) {
+      toast.error("Privy is not ready yet");
+      return;
+    }
+    if (authenticated) {
+      toast.info("You are already connected");
+      return;
+    }
+    try {
+      await login();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to connect");
+    }
+  };
 
   const copyAddress = () => {
     if (walletAddress) {
@@ -38,6 +54,7 @@ export function Header() {
       case "phantom": return "🟣";
       case "metamask": return "🦊";
       case "coinbase": return "🔵";
+      case "privy_embedded": return "🔷";
       default: return "👛";
     }
   };
@@ -156,7 +173,7 @@ export function Header() {
               <Button 
                 variant="gradient" 
                 className="gap-2"
-                onClick={() => setIsWalletModalOpen(true)}
+                onClick={handleConnect}
               >
                 <Wallet className="w-4 h-4" />
                 <span className="hidden sm:inline">Connect Wallet</span>
@@ -166,11 +183,6 @@ export function Header() {
           </div>
         </div>
       </header>
-
-      <WalletModal 
-        isOpen={isWalletModalOpen} 
-        onClose={() => setIsWalletModalOpen(false)} 
-      />
 
       <DepositModal 
         isOpen={showDepositModal} 

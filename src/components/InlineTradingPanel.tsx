@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
 import { Market } from "@/data/markets";
 import { useWallet } from "@/contexts/WalletContext";
-import { WalletModal } from "@/components/WalletModal";
+import { usePrivy } from "@privy-io/react-auth";
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal";
 import { formatDistanceToNow, isPast } from "date-fns";
 
@@ -103,7 +103,7 @@ export function InlineTradingPanel({ market, initialSide, outcome, onClose }: In
   const { isConnected } = useWallet();
   const [side, setSide] = useState<'yes' | 'no'>(initialSide);
   const [amount, setAmount] = useState(10);
-  const [showWalletModal, setShowWalletModal] = useState(false);
+  const { login } = usePrivy();
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   // For multi-outcome markets, find the specific outcome price
@@ -121,7 +121,7 @@ export function InlineTradingPanel({ market, initialSide, outcome, onClose }: In
 
   const handleBuyClick = () => {
     if (!isConnected) {
-      setShowWalletModal(true);
+      login();
     } else {
       setShowConfirmation(true);
     }
@@ -266,10 +266,6 @@ export function InlineTradingPanel({ market, initialSide, outcome, onClose }: In
       </motion.div>
 
       {/* Wallet Modal */}
-      <WalletModal 
-        isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-      />
 
       {/* Trade Confirmation Modal */}
       <TradeConfirmationModal
