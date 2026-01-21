@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Market } from "@/data/markets";
 import { useWallet } from "@/contexts/WalletContext";
-import { WalletModal } from "@/components/WalletModal";
+import { usePrivy } from "@privy-io/react-auth";
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal";
 
 interface InlineTradingModalProps {
@@ -22,7 +22,7 @@ export function InlineTradingModal({ market, outcome, initialSide, onClose }: In
   const [amount, setAmount] = useState(10);
   const [targetPriceEnabled, setTargetPriceEnabled] = useState(false);
   const [targetPrice, setTargetPrice] = useState(55);
-  const [showWalletModal, setShowWalletModal] = useState(false);
+  const { login } = usePrivy();
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   if (!market) return null;
@@ -37,7 +37,7 @@ export function InlineTradingModal({ market, outcome, initialSide, onClose }: In
 
   const handleBuyClick = () => {
     if (!isConnected) {
-      setShowWalletModal(true);
+      login();
     } else {
       setShowConfirmation(true);
     }
@@ -245,10 +245,6 @@ export function InlineTradingModal({ market, outcome, initialSide, onClose }: In
       </AnimatePresence>
 
       {/* Wallet Modal */}
-      <WalletModal 
-        isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-      />
 
       {/* Trade Confirmation Modal */}
       <TradeConfirmationModal

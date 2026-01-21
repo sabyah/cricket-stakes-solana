@@ -6,7 +6,7 @@ import { Market } from "@/data/markets";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { Slider } from "@/components/ui/slider";
 import { useWallet } from "@/contexts/WalletContext";
-import { WalletModal } from "@/components/WalletModal";
+import { usePrivy } from "@privy-io/react-auth";
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal";
 
 interface MarketCardProps {
@@ -125,7 +125,6 @@ export function MarketCard({ market, index, onSelect, isBookmarked = false, onTo
   const [tradingOpen, setTradingOpen] = useState(false);
   const [tradingSide, setTradingSide] = useState<'yes' | 'no'>('yes');
   const [amount, setAmount] = useState(10);
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleClick = () => {
@@ -150,10 +149,16 @@ export function MarketCard({ market, index, onSelect, isBookmarked = false, onTo
   const shares = amount / currentPrice;
   const potentialReturn = shares * 1;
 
-  const handleBuyClick = (e: React.MouseEvent) => {
+  const handleBuyClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isConnected) {
-      setShowWalletModal(true);
+      if (ready && !authenticated) {
+        try {
+          await login();
+        } catch (error) {
+          console.error("Failed to connect:", error);
+        }
+      }
     } else {
       setShowConfirmation(true);
     }
@@ -299,10 +304,6 @@ export function MarketCard({ market, index, onSelect, isBookmarked = false, onTo
       </motion.div>
 
       {/* Wallet Modal */}
-      <WalletModal 
-        isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-      />
 
       {/* Trade Confirmation Modal */}
       <TradeConfirmationModal

@@ -6,7 +6,7 @@ import { Market } from "@/data/markets";
 import { formatDistanceToNow, isPast } from "date-fns";
 import { Slider } from "@/components/ui/slider";
 import { useWallet } from "@/contexts/WalletContext";
-import { WalletModal } from "@/components/WalletModal";
+import { usePrivy } from "@privy-io/react-auth";
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal";
 
 interface MultiOutcomeCardProps {
@@ -74,7 +74,7 @@ export function MultiOutcomeCard({ market, index, onSelect, isBookmarked = false
   const [tradingSide, setTradingSide] = useState<'yes' | 'no'>('yes');
   const [tradingOutcome, setTradingOutcome] = useState<string | null>(null);
   const [amount, setAmount] = useState(10);
-  const [showWalletModal, setShowWalletModal] = useState(false);
+  const { login, authenticated } = usePrivy();
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleClick = () => {
@@ -107,7 +107,7 @@ export function MultiOutcomeCard({ market, index, onSelect, isBookmarked = false
   const handleBuyClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isConnected) {
-      setShowWalletModal(true);
+      login();
     } else {
       setShowConfirmation(true);
     }
@@ -286,10 +286,6 @@ export function MultiOutcomeCard({ market, index, onSelect, isBookmarked = false
       </motion.div>
 
       {/* Wallet Modal */}
-      <WalletModal 
-        isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-      />
 
       {/* Trade Confirmation Modal */}
       <TradeConfirmationModal

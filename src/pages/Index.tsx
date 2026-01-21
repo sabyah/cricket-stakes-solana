@@ -3,13 +3,23 @@ import { Header } from "@/components/Header";
 import { StoryFeed } from "@/components/StoryFeed";
 import { MarketModal } from "@/components/MarketModal";
 import { Footer } from "@/components/Footer";
-import { WalletModal } from "@/components/WalletModal";
 import { BottomNav } from "@/components/BottomNav";
+import { usePrivy } from "@privy-io/react-auth";
 import { Market } from "@/data/markets";
 
 const Index = () => {
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const { login, authenticated, ready } = usePrivy();
+
+  const handleOpenWallet = async () => {
+    if (!ready) return;
+    if (authenticated) return;
+    try {
+      await login();
+    } catch (error) {
+      console.error("Failed to open wallet:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -21,11 +31,7 @@ const Index = () => {
       <MarketModal 
         market={selectedMarket} 
         onClose={() => setSelectedMarket(null)}
-        onOpenWallet={() => setIsWalletModalOpen(true)}
-      />
-      <WalletModal 
-        isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
+        onOpenWallet={handleOpenWallet}
       />
     </div>
   );
