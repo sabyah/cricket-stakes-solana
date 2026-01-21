@@ -41,11 +41,39 @@ import {
   Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useWallet } from "@/contexts/WalletContext";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
+// Mock data for markets
+const mockMarkets = [
+  {
+    id: "1",
+    title: "Will Bitcoin reach $100k by March 2026?",
+    status: "active",
+    yes_price: 0.65,
+    volume: 45000,
+    end_date: "2026-03-31",
+    twitter_embed_enabled: true,
+  },
+  {
+    id: "2",
+    title: "Will Ethereum flip Bitcoin by 2027?",
+    status: "draft",
+    yes_price: 0.15,
+    volume: 0,
+    end_date: "2027-01-01",
+    twitter_embed_enabled: false,
+  },
+  {
+    id: "3",
+    title: "US recession in 2026?",
+    status: "paused",
+    yes_price: 0.42,
+    volume: 12500,
+    end_date: "2026-12-31",
+    twitter_embed_enabled: true,
+  },
+];
 
 const statusConfig = {
   draft: { label: "Draft", variant: "secondary" as const, icon: Edit },
@@ -58,84 +86,11 @@ const statusConfig = {
 export const MarketManager = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useWallet();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingMarket, setEditingMarket] = useState<any>(null);
   const [editFormData, setEditFormData] = useState({ title: "", description: "" });
-
-  // Fetch markets from database
-  const { data: markets = [], isLoading } = useQuery({
-    queryKey: ["creator-markets", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("user_markets")
-        .select("*")
-        .eq("creator_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id
-  });
-
-  // Update market status mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "active" | "paused" | "draft" | "resolved" | "cancelled" }) => {
-      const { error } = await supabase
-        .from("user_markets")
-        .update({ status })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["creator-markets"] });
-      toast({ title: "Market updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error updating market", description: error.message, variant: "destructive" });
-    }
-  });
-
-  // Update market details mutation
-  const updateMarketMutation = useMutation({
-    mutationFn: async ({ id, title, description }: { id: string; title: string; description: string }) => {
-      const { error } = await supabase
-        .from("user_markets")
-        .update({ title, description })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["creator-markets"] });
-      toast({ title: "Market updated successfully" });
-      setEditingMarket(null);
-    },
-    onError: (error: any) => {
-      toast({ title: "Error updating market", description: error.message, variant: "destructive" });
-    }
-  });
-
-  // Delete market mutation
-  const deleteMarketMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("user_markets")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["creator-markets"] });
-      toast({ title: "Market deleted successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error deleting market", description: error.message, variant: "destructive" });
-    }
-  });
+  const [markets, setMarkets] = useState(mockMarkets);
 
   const handleViewDetails = (marketId: string) => {
     navigate(`/market/${marketId}`);
@@ -148,24 +103,35 @@ export const MarketManager = () => {
 
   const handleSaveEdit = () => {
     if (editingMarket) {
-      updateMarketMutation.mutate({
-        id: editingMarket.id,
-        title: editFormData.title,
-        description: editFormData.description
-      });
+      setMarkets(prev => prev.map(m => 
+        m.id === editingMarket.id 
+          ? { ...m, title: editFormData.title }
+          : m
+      ));
+      toast({ title: "Market updated successfully" });
+      setEditingMarket(null);
     }
   };
 
   const handlePauseMarket = (marketId: string) => {
-    updateStatusMutation.mutate({ id: marketId, status: "paused" });
+    setMarkets(prev => prev.map(m => 
+      m.id === marketId ? { ...m, status: "paused" } : m
+    ));
+    toast({ title: "Market paused" });
   };
 
   const handleResumeMarket = (marketId: string) => {
-    updateStatusMutation.mutate({ id: marketId, status: "active" });
+    setMarkets(prev => prev.map(m => 
+      m.id === marketId ? { ...m, status: "active" } : m
+    ));
+    toast({ title: "Market resumed" });
   };
 
   const handlePublishMarket = (marketId: string) => {
-    updateStatusMutation.mutate({ id: marketId, status: "active" });
+    setMarkets(prev => prev.map(m => 
+      m.id === marketId ? { ...m, status: "active" } : m
+    ));
+    toast({ title: "Market published" });
   };
 
   const handleShareOnTwitter = (market: any) => {
@@ -174,26 +140,19 @@ export const MarketManager = () => {
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank");
   };
 
-  const handleResolveMarket = (marketId: string, resolution: "yes" | "no") => {
-    supabase
-      .from("user_markets")
-      .update({ status: "resolved", resolution })
-      .eq("id", marketId)
-      .then(({ error }) => {
-        if (error) {
-          toast({ title: "Error resolving market", description: error.message, variant: "destructive" });
-        } else {
-          queryClient.invalidateQueries({ queryKey: ["creator-markets"] });
-          toast({ title: "Market resolved successfully" });
-        }
-      });
+  const handleResolveMarket = (marketId: string) => {
+    setMarkets(prev => prev.map(m => 
+      m.id === marketId ? { ...m, status: "resolved" } : m
+    ));
+    toast({ title: "Market resolved successfully" });
   };
 
   const handleDeleteMarket = (marketId: string) => {
-    deleteMarketMutation.mutate(marketId);
+    setMarkets(prev => prev.filter(m => m.id !== marketId));
+    toast({ title: "Market deleted successfully" });
   };
 
-  const filteredMarkets = markets.filter((market: any) => {
+  const filteredMarkets = markets.filter((market) => {
     const matchesSearch = market.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || market.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -248,20 +207,14 @@ export const MarketManager = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Loading markets...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredMarkets.length === 0 ? (
+                {filteredMarkets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No markets found matching your criteria
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredMarkets.map((market: any) => {
+                  filteredMarkets.map((market) => {
                     const StatusIcon = statusConfig[market.status as keyof typeof statusConfig]?.icon || Edit;
                     return (
                       <TableRow key={market.id}>
@@ -338,7 +291,7 @@ export const MarketManager = () => {
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {market.status === "active" && (
-                                <DropdownMenuItem onClick={() => handleResolveMarket(market.id, "yes")}>
+                                <DropdownMenuItem onClick={() => handleResolveMarket(market.id)}>
                                   <CheckCircle className="w-4 h-4 mr-2" />
                                   Resolve Market
                                 </DropdownMenuItem>
@@ -394,7 +347,7 @@ export const MarketManager = () => {
               <Button variant="outline" onClick={() => setEditingMarket(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveEdit} disabled={updateMarketMutation.isPending}>
+              <Button onClick={handleSaveEdit}>
                 Save Changes
               </Button>
             </div>

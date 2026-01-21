@@ -13,11 +13,10 @@ import { format } from "date-fns";
 import { CalendarIcon, Twitter, Zap, Eye, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
 import { z } from "zod";
 
-// Validation constants matching database constraints
+// Validation constants
 const TITLE_MIN_LENGTH = 10;
 const TITLE_MAX_LENGTH = 200;
 const DESCRIPTION_MAX_LENGTH = 5000;
@@ -42,6 +41,7 @@ const marketSchema = z.object({
     .min(LIQUIDITY_MIN, `Liquidity must be at least ${LIQUIDITY_MIN}`)
     .max(LIQUIDITY_MAX, `Liquidity must be at most ${LIQUIDITY_MAX}`),
 });
+
 interface CreateMarketFormProps {
   onSuccess?: () => void;
 }
@@ -106,22 +106,8 @@ export const CreateMarketForm = ({ onSuccess }: CreateMarketFormProps) => {
     setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase
-        .from("user_markets")
-        .insert({
-          creator_id: user.id,
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          end_date: formData.endDate.toISOString(),
-          status: publish ? "active" : "draft",
-          twitter_embed_enabled: formData.twitterEmbed,
-          liquidity: formData.initialLiquidity
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      // Mock market creation - simulate success
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       toast({
         title: publish ? "Market published!" : "Market saved as draft",
