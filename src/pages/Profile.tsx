@@ -246,7 +246,6 @@ const Profile = () => {
       case "phantom": return "🟣";
       case "metamask": return "🦊";
       case "coinbase": return "🔵";
-      case "google": return "🔷";
       default: return "👛";
     }
   };

@@ -6,7 +6,7 @@ import { Market } from "@/data/markets";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { Slider } from "@/components/ui/slider";
 import { useWallet } from "@/contexts/WalletContext";
-import { usePrivy } from "@privy-io/react-auth";
+
 import { TradeConfirmationModal } from "@/components/TradeConfirmationModal";
 
 interface MarketCardProps {
@@ -151,17 +151,7 @@ export function MarketCard({ market, index, onSelect, isBookmarked = false, onTo
 
   const handleBuyClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isConnected) {
-      if (ready && !authenticated) {
-        try {
-          await login();
-        } catch (error) {
-          console.error("Failed to connect:", error);
-        }
-      }
-    } else {
-      setShowConfirmation(true);
-    }
+    setShowConfirmation(true);
   };
 
   const endTimeText = formatEndDate(market.endDate);
