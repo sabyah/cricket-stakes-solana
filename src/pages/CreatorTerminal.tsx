@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { usePrivy } from "@privy-io/react-auth";
+
 import { useWallet } from "@/contexts/WalletContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,8 +28,7 @@ import { NewsIntegration } from "@/components/creator/NewsIntegration";
 import { RevenuePanel } from "@/components/creator/RevenuePanel";
 
 const CreatorTerminal = () => {
-  const { login, authenticated } = usePrivy();
-  const { isConnected } = useWallet();
+  const { isConnected, connect } = useWallet();
   const [activeTab, setActiveTab] = useState("dashboard");
 
   if (!isConnected) {
@@ -52,7 +51,7 @@ const CreatorTerminal = () => {
                 <Button 
                   size="lg" 
                   className="w-full"
-                  onClick={() => login()}
+                  onClick={() => connect("phantom")}
                 >
                   Connect Wallet
                 </Button>
@@ -145,7 +144,6 @@ const CreatorTerminal = () => {
         </div>
       </main>
       <Footer />
-      <WalletModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
     </div>
   );
 };

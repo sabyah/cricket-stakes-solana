@@ -57,7 +57,7 @@ export function TradingWidget({ market, selectedOutcomeIndex: externalIndex, onO
 
   const handleTrade = async () => {
     if (!isConnected) {
-      connect("google");
+      connect("phantom");
       return;
     }
 
