@@ -51,11 +51,10 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm sm:text-base font-semibold">Voicefi</span>
             <span className="text-xs text-muted-foreground">powered by</span>
-            <div className="flex items-center gap-1">
-              <div className="w-5 h-5 rounded bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <span className="text-background font-bold text-[10px]">YN</span>
+          <div className="flex items-center">
+              <div className="h-7 px-2 rounded bg-[#E86C25] flex items-center justify-center">
+                <span className="text-white font-bold text-sm tracking-wide" style={{ fontFamily: "'Press Start 2P', monospace" }}>YeNo</span>
               </div>
-              <span className="text-sm font-semibold text-primary">YeNo</span>
             </div>
           </div>
         </div>
