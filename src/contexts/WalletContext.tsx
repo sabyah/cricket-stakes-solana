@@ -94,7 +94,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       // Verify token and sync with backend
       const data = await apiClient.verifyToken(token);
-      
+
       setUser({
         id: data.user.id,
         email: data.user.email || undefined,
@@ -112,7 +112,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       setHasSynced(true);
     } catch (error) {
-      console.error("Error syncing user data:", error);
+      // Backend unreachable (e.g. not running) – use Privy user data so app still works
+      const isNetworkError =
+        error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "Network error");
+      if (isNetworkError) {
+        setUser({
+          id: privyUser?.id,
+          email: privyUser?.email?.address,
+          name: privyUser?.name ?? undefined,
+          avatar: privyUser?.avatar ?? undefined,
+        });
+      } else {
+        console.error("Error syncing user data:", error);
+      }
+      setHasSynced(true);
     }
   };
 

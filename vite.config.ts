@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Polyfill for Privy/bn.js – avoid "buffer externalized for browser" error
+      buffer: "buffer",
     },
+  },
+  optimizeDeps: {
+    include: ["buffer", "@solana/spl-token"],
   },
 }));

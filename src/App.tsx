@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { WalletProvider } from "@/contexts/WalletContext";
 import Index from "./pages/Index";
 import MarketDetail from "./pages/MarketDetail";
@@ -14,6 +15,25 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
+
+// Solana wallet connectors for Privy (Phantom, etc.) – required when Solana login is enabled in dashboard
+const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: false });
+
+const router = createBrowserRouter(
+  [
+    { path: "/", element: <Index /> },
+    { path: "/market/:id", element: <MarketDetail /> },
+    { path: "/profile", element: <Profile /> },
+    { path: "/creator", element: <CreatorTerminal /> },
+    { path: "*", element: <NotFound /> },
+  ],
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    },
+  }
+);
 
 // Show error if Privy App ID is missing
 if (!PRIVY_APP_ID && import.meta.env.DEV) {
@@ -73,10 +93,16 @@ const App = () => {
           theme: 'light',
           accentColor: '#676FFF',
           logo: '/logo.svg',
+          walletChainType: 'ethereum-and-solana',
         },
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
           requireUserPasswordOnCreate: false,
+        },
+        externalWallets: {
+          solana: {
+            connectors: solanaConnectors,
+          },
         },
       }}
     >
@@ -85,16 +111,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/market/:id" element={<MarketDetail />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/creator" element={<CreatorTerminal />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+            <RouterProvider router={router} />
           </TooltipProvider>
         </WalletProvider>
       </QueryClientProvider>
