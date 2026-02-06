@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Wallet, ChevronDown, LogOut, Copy, Check, Search, User, Zap, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DepositModal } from "@/components/DepositModal";
+import { TempLoginButton } from "@/components/TempLoginButton";
 import { useWallet } from "@/contexts/WalletContext";
 import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
@@ -96,6 +97,7 @@ export function Header() {
             
             {isConnected && walletAddress ? (
               <div className="relative">
+                {/* ... existing wallet dropdown ... */}
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary border border-border hover:border-primary/50 transition-all"
@@ -170,15 +172,18 @@ export function Header() {
                 )}
               </div>
             ) : (
-              <Button 
-                variant="gradient" 
-                className="gap-2"
-                onClick={handleConnect}
-              >
-                <Wallet className="w-4 h-4" />
-                <span className="hidden sm:inline">Connect Wallet</span>
-                <span className="sm:hidden">Connect</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <TempLoginButton />
+                <Button 
+                  variant="gradient" 
+                  className="gap-2"
+                  onClick={handleConnect}
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span className="hidden sm:inline">Connect Wallet</span>
+                  <span className="sm:hidden">Connect</span>
+                </Button>
+              </div>
             )}
           </div>
         </div>

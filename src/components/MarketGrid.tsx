@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { useMarkets } from "@/hooks/useMarkets";
 import { 
   Search, TrendingUp, Trophy, Clock, Vote, Globe, ChevronLeft, ChevronRight,
   LayoutGrid, List, SlidersHorizontal, Bookmark, X, Flame, Banknote,
@@ -86,7 +87,27 @@ export function MarketGrid({ onSelectMarket }: MarketGridProps) {
     }
   };
 
-  const filteredMarkets = allMarkets.filter((market) => {
+  const { data: marketsData, isLoading } = useMarkets({
+    status: 'ACTIVE',
+    limit: 50,
+    search: searchQuery,
+    sort: sortBy === '24h_volume' ? 'volume' : sortBy === 'liquidity' ? 'liquidity' : sortBy === 'ending_soon' ? 'ending_soon' : 'newest',
+  });
+  
+  // Use API data if available, otherwise fallback to mock
+  const apiMarkets = marketsData?.pages.flatMap(page => page.markets) || [];
+  
+  // Normalize API data to match legacy Market interface expected by components
+  const normalizedApiMarkets = apiMarkets.map(m => ({
+    ...m,
+    description: m.description || '', // Ensure description exists
+    image: m.imageUrl || '/placeholder.svg', // Map imageUrl to image
+    outcomes: [], // Default outcomes
+  }));
+
+  const displayMarkets = normalizedApiMarkets.length > 0 ? normalizedApiMarkets : allMarkets;
+
+  const filteredMarkets = displayMarkets.filter((market) => {
     // Bookmarks filter
     if (showBookmarksOnly && !isBookmarked(market.id)) return false;
     
@@ -104,7 +125,7 @@ export function MarketGrid({ onSelectMarket }: MarketGridProps) {
       (activeCategory === 'football' && market.category.includes('Football')) ||
       (activeCategory === 'crypto' && market.category.toLowerCase().includes('crypto')) ||
       (activeCategory === 'stocks' && (market.category.includes('Stock') || market.category.includes('Finance') || market.category.includes('Economic'))) ||
-      (activeCategory === 'viral' && market.trending) ||
+      (activeCategory === 'viral' && ((market as any).trendingScore || 0) > 0) ||
       (activeCategory === 'tech' && market.category.includes('Tech')) ||
       (activeCategory === 'finance' && (market.category.includes('Economic') || market.category.includes('Finance'))) ||
       (activeCategory === 'world' && market.category.includes('World')) ||
@@ -116,13 +137,14 @@ export function MarketGrid({ onSelectMarket }: MarketGridProps) {
       market.title.toLowerCase().includes(activeTopic.toLowerCase()) ||
       market.category.toLowerCase().includes(activeTopic.toLowerCase());
     
-    // Search filter
+    // Search filter (already handled by API but applying client-side for mock/refined filtering)
     const matchesSearch = 
       market.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      market.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (market.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     return matchesCategory && matchesTopic && matchesSearch;
   }).sort((a, b) => {
+    // Client-side sort for consistency
     switch (sortBy) {
       case '24h_volume':
         return b.volume - a.volume;
@@ -137,8 +159,12 @@ export function MarketGrid({ onSelectMarket }: MarketGridProps) {
     }
   });
 
-  const multiOutcome = filteredMarkets.filter(m => m.outcomes && m.outcomes.length > 0);
-  const binaryMarkets = filteredMarkets.filter(m => !m.outcomes || m.outcomes.length === 0);
+  const multiOutcome = filteredMarkets.filter(m => false); // Disable multi-outcome for now until API supports it
+  const binaryMarkets = filteredMarkets;
+
+  if (isLoading) {
+    return <div className="py-20 text-center">Loading markets...</div>;
+  }
 
   return (
     <section id="markets" className="py-8">

@@ -14,6 +14,7 @@ import { ResolutionInfo } from "@/components/market/ResolutionInfo";
 import { ashesMarkets, politicalMarkets } from "@/data/markets";
 import { multiOutcomeMarkets } from "@/data/multiOutcomeMarkets";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useMarket } from "@/hooks/useMarkets";
 import { InlineTradingPanel } from "@/components/InlineTradingPanel";
 import { AnimatePresence } from "framer-motion";
 
@@ -65,7 +66,30 @@ export default function MarketDetail() {
   const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number | null>(null);
   const [tradingPanel, setTradingPanel] = useState<{ side: 'yes' | 'no'; outcome?: string } | null>(null);
   
-  const market = allMarkets.find(m => m.id === id);
+  // Fetch market data from API
+  const { data: apiMarket, isLoading, error } = useMarket(id || '');
+
+  // Fallback to mock data if API fails or while loading (optimistic)
+  const mockMarket = allMarkets.find(m => m.id === id);
+  
+  // Normalize API market to match component expectations
+  const market = apiMarket ? {
+    ...apiMarket,
+    description: apiMarket.description || '',
+    image: apiMarket.imageUrl || '/placeholder.svg',
+    outcomes: apiMarket.outcomes || [],
+  } : mockMarket;
+  
+  if (isLoading && !market) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-20 container mx-auto px-4 flex justify-center py-20">
+          <div className="animate-pulse">Loading market...</div>
+        </main>
+      </div>
+    );
+  }
   
   if (!market) {
     return (
@@ -120,7 +144,7 @@ export default function MarketDetail() {
                         LIVE
                       </Badge>
                     )}
-                    {market.trending && (
+                    {(market as any).trending && (
                       <Badge className="bg-accent/20 text-accent border-accent/30">Trending</Badge>
                     )}
                   </div>
@@ -303,16 +327,16 @@ export default function MarketDetail() {
                         </div>
                         <div className="col-span-2 text-right">
                           <div className="text-lg font-bold text-success">{Math.round(market.yesPrice * 100)}%</div>
-                          {market.change24h && (
+                          {(market as any).change24h && (
                             <div className={`text-xs flex items-center justify-end gap-0.5 ${
-                              market.change24h >= 0 ? "text-success" : "text-destructive"
+                              (market as any).change24h >= 0 ? "text-success" : "text-destructive"
                             }`}>
-                              {market.change24h >= 0 ? (
+                              {(market as any).change24h >= 0 ? (
                                 <TrendingUp className="w-3 h-3" />
                               ) : (
                                 <TrendingDown className="w-3 h-3" />
                               )}
-                              {Math.abs(market.change24h).toFixed(1)}%
+                              {Math.abs((market as any).change24h).toFixed(1)}%
                             </div>
                           )}
                         </div>
@@ -342,16 +366,16 @@ export default function MarketDetail() {
                         </div>
                         <div className="col-span-2 text-right">
                           <div className="text-lg font-bold text-destructive">{Math.round(market.noPrice * 100)}%</div>
-                          {market.change24h && (
+                          {(market as any).change24h && (
                             <div className={`text-xs flex items-center justify-end gap-0.5 ${
-                              market.change24h < 0 ? "text-success" : "text-destructive"
+                              (market as any).change24h < 0 ? "text-success" : "text-destructive"
                             }`}>
-                              {market.change24h < 0 ? (
+                              {(market as any).change24h < 0 ? (
                                 <TrendingUp className="w-3 h-3" />
                               ) : (
                                 <TrendingDown className="w-3 h-3" />
                               )}
-                              {Math.abs(market.change24h).toFixed(1)}%
+                              {Math.abs((market as any).change24h).toFixed(1)}%
                             </div>
                           )}
                         </div>
