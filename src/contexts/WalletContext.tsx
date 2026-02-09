@@ -26,15 +26,49 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+function normalizeChainType(wallet: any): string {
+  const ct = wallet?.chainType ?? wallet?.chain_type ?? "";
+  return String(ct).toLowerCase();
+}
+
+function normalizeClientType(wallet: any): string {
+  const wt = wallet?.walletClientType ?? wallet?.wallet_client_type ?? "";
+  return String(wt).toLowerCase();
+}
+
+function mapPrivyWalletType(wallet: any): WalletType {
+  const clientType = normalizeClientType(wallet);
+  if (clientType === "privy") return "privy_embedded";
+  if (clientType === "phantom") return "phantom";
+  if (clientType === "coinbase_wallet") return "coinbase";
+  if (clientType === "metamask") return "metamask";
+  return null;
+}
+
+/**
+ * NO SOLANA STRICTNESS:
+ * Prefer external wallets first, regardless of chain.
+ * You can tweak the order below if you want Coinbase > MetaMask, etc.
+ */
+function pickPreferredWalletFromPrivy(privyWallets: any[]): any | null {
+  if (!privyWallets?.length) return null;
+
+  return (
+    // Prefer MetaMask first (common default for EVM)
+    privyWallets.find((w) => normalizeClientType(w) === "metamask") ||
+    // Then Coinbase
+    privyWallets.find((w) => normalizeClientType(w) === "coinbase_wallet") ||
+    // Then Phantom
+    privyWallets.find((w) => normalizeClientType(w) === "phantom") ||
+    // Then embedded
+    privyWallets.find((w) => normalizeClientType(w) === "privy") ||
+    // Fallback
+    privyWallets[0]
+  );
+}
+
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const {
-    ready,
-    authenticated,
-    user: privyUser,
-    login,
-    logout,
-    getAccessToken,
-  } = usePrivy();
+  const { ready, authenticated, user: privyUser, login, logout, getAccessToken } = usePrivy();
   const { wallets: privyWallets } = useWallets();
 
   const [isConnected, setIsConnected] = useState(false);
@@ -46,12 +80,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
 
-  // Sync user and wallet data with backend when authenticated
+  // Sync once after auth
   useEffect(() => {
     if (ready && authenticated && privyUser && !hasSynced) {
       syncUserData();
     } else if (!authenticated) {
-      // Clear state on logout
       setIsConnected(false);
       setWalletAddress(null);
       setWalletType(null);
@@ -59,25 +92,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setHasSynced(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, authenticated, privyUser, hasSynced]);
 
-  // Update wallet address when Privy wallets change
+  // Keep wallet selection updated when Privy wallets change
   useEffect(() => {
     if (privyWallets && privyWallets.length > 0) {
-      const primaryWallet = privyWallets.find((w) => w.walletClientType === 'privy') || privyWallets[0];
-      if (primaryWallet) {
-        setWalletAddress(primaryWallet.address);
+      const preferred = pickPreferredWalletFromPrivy(privyWallets as any[]);
+      if (preferred) {
+        setWalletAddress(preferred.address);
+        setWalletType(mapPrivyWalletType(preferred));
         setIsConnected(true);
-        
-        // Determine wallet type
-        if (primaryWallet.walletClientType === 'privy') {
-          setWalletType('privy_embedded');
-        } else if (primaryWallet.walletClientType === 'metamask') {
-          setWalletType('metamask');
-        } else if (primaryWallet.walletClientType === 'coinbase_wallet') {
-          setWalletType('coinbase');
-        } else if (primaryWallet.walletClientType === 'phantom') {
-          setWalletType('phantom');
+
+        // Optional diagnostics
+        const client = normalizeClientType(preferred);
+        const chain = normalizeChainType(preferred);
+        if (client === "coinbase_wallet" && chain && chain !== "solana") {
+          // Not an error—just useful when you’re trying Solana stuff
+          console.info(`[Wallet] Coinbase selected on chain="${chain}".`);
         }
       }
     } else if (!authenticated) {
@@ -92,7 +124,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const token = await getAccessToken();
       if (!token) return;
 
-      // Verify token and sync with backend
       const data = await apiClient.verifyToken(token);
 
       setUser({
@@ -102,19 +133,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         avatar: data.user.avatar || undefined,
       });
 
-      // Set primary wallet if available
-      const primaryWallet = data.wallets.find((w) => w.isPrimary) || data.wallets[0];
-      if (primaryWallet) {
-        setWalletAddress(primaryWallet.address);
-        setWalletType(primaryWallet.walletType as WalletType);
+      // Prefer backend “primary” wallet (normalized walletType + chainType)
+      const backendWallets = Array.isArray(data.wallets) ? data.wallets : [];
+      const preferredBackend =
+        backendWallets.find((w: any) => w.isPrimary) ||
+        backendWallets[0];
+
+      if (preferredBackend) {
+        setWalletAddress(preferredBackend.address);
+        setWalletType(preferredBackend.walletType as WalletType);
         setIsConnected(true);
+      } else {
+        // Fallback to Privy wallets
+        const preferred = pickPreferredWalletFromPrivy(privyWallets as any[]);
+        if (preferred) {
+          setWalletAddress(preferred.address);
+          setWalletType(mapPrivyWalletType(preferred));
+          setIsConnected(true);
+        }
       }
 
       setHasSynced(true);
     } catch (error) {
-      // Backend unreachable (e.g. not running) – use Privy user data so app still works
       const isNetworkError =
         error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "Network error");
+
       if (isNetworkError) {
         setUser({
           id: privyUser?.id,
@@ -129,39 +172,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const connect = useCallback(async (type?: WalletType) => {
-    setIsConnecting(true);
-    
-    try {
-      if (!authenticated) {
-        // Login with Privy - it will handle all wallet connections
-        await login();
-      } else {
-        // If already authenticated, Privy handles wallet connections through its UI
-        // This is typically handled by Privy's built-in wallet connection flow
-        console.log("Already authenticated. Use Privy's wallet connection UI.");
+  const connect = useCallback(
+    async (_type?: WalletType) => {
+      setIsConnecting(true);
+      try {
+        if (!authenticated) {
+          await login(); // ✅ unchanged flow
+        } else {
+          console.log("Already authenticated. Use Privy's wallet connection UI.");
+        }
+      } finally {
+        setIsConnecting(false);
       }
-    } catch (error) {
-      console.error("Failed to connect:", error);
-      throw error;
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [authenticated, login]);
+    },
+    [authenticated, login]
+  );
 
   const disconnect = useCallback(async () => {
-    try {
-      await logout();
-      setIsConnected(false);
-      setWalletAddress(null);
-      setWalletType(null);
-      setBalance(0);
-      setUser(null);
-      setHasSynced(false);
-    } catch (error) {
-      console.error("Failed to disconnect:", error);
-      throw error;
-    }
+    await logout();
+    setIsConnected(false);
+    setWalletAddress(null);
+    setWalletType(null);
+    setBalance(0);
+    setUser(null);
+    setHasSynced(false);
   }, [logout]);
 
   return (

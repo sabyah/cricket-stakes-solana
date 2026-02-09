@@ -16,7 +16,7 @@ const queryClient = new QueryClient();
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
 
-// Solana wallet connectors for Privy (Phantom, etc.) – required when Solana login is enabled in dashboard
+// Solana wallet connectors for Privy (Phantom, etc.)
 const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: false });
 
 const router = createBrowserRouter(
@@ -35,18 +35,16 @@ const router = createBrowserRouter(
   }
 );
 
-// Show error if Privy App ID is missing
 if (!PRIVY_APP_ID && import.meta.env.DEV) {
   console.error(
     "⚠️ Privy App ID is missing!\n" +
-    "Please create a .env file in the root directory with:\n" +
-    "VITE_PRIVY_APP_ID=your_privy_app_id_here\n\n" +
-    "Get your App ID from: https://dashboard.privy.io"
+      "Please create a .env file in the root directory with:\n" +
+      "VITE_PRIVY_APP_ID=your_privy_app_id_here\n\n" +
+      "Get your App ID from: https://dashboard.privy.io"
   );
 }
 
 const App = () => {
-  // Show error message if App ID is missing
   if (!PRIVY_APP_ID) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -63,16 +61,30 @@ const App = () => {
           <div className="space-y-2 text-sm">
             <p>To connect Privy, please:</p>
             <ol className="list-decimal list-inside space-y-1 ml-2">
-              <li>Get your App ID from <a href="https://dashboard.privy.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privy Dashboard</a></li>
-              <li>Create a <code className="bg-secondary px-1 py-0.5 rounded">.env</code> file in the root directory</li>
-              <li>Add: <code className="bg-secondary px-1 py-0.5 rounded">VITE_PRIVY_APP_ID=your_app_id</code></li>
+              <li>
+                Get your App ID from{" "}
+                <a
+                  href="https://dashboard.privy.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Privy Dashboard
+                </a>
+              </li>
+              <li>
+                Create a <code className="bg-secondary px-1 py-0.5 rounded">.env</code> file in the root directory
+              </li>
+              <li>
+                Add: <code className="bg-secondary px-1 py-0.5 rounded">VITE_PRIVY_APP_ID=your_app_id</code>
+              </li>
               <li>Restart the dev server</li>
             </ol>
           </div>
           <div className="pt-4 border-t border-border">
-            <a 
-              href="https://dashboard.privy.io" 
-              target="_blank" 
+            <a
+              href="https://dashboard.privy.io"
+              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
@@ -88,15 +100,16 @@ const App = () => {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        loginMethods: ['email', 'google', 'twitter', 'wallet'],
+        loginMethods: ["email", "google", "twitter", "wallet"],
         appearance: {
-          theme: 'light',
-          accentColor: '#676FFF',
-          logo: '/logo.svg',
-          walletChainType: 'ethereum-and-solana',
+          theme: "light",
+          accentColor: "#676FFF",
+          logo: "/logo.svg",
+          // ✅ Don’t force solana-only; it can cause Coinbase timeouts.
+          walletChainType: "ethereum-and-solana",
         },
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          createOnLogin: "users-without-wallets",
           requireUserPasswordOnCreate: false,
         },
         externalWallets: {

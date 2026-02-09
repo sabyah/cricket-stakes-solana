@@ -194,6 +194,14 @@ class ApiClient {
     return data.data as T;
   }
 
+  async verifyToken(accessToken: string) {
+    return this.request<{ user: any; wallets: any[] }>('/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ accessToken }),
+    });
+  }
+
+
   // ===== Markets =====
   async getMarkets(params: {
     status?: string;
