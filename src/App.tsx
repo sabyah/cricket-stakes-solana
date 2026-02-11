@@ -17,7 +17,7 @@ const queryClient = new QueryClient();
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
 
-// Solana wallet connectors for Privy (Phantom, etc.) – required when Solana login is enabled in dashboard
+// Solana wallet connectors for Privy (Phantom, etc.)
 const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: false });
 
 const router = createBrowserRouter(
@@ -36,13 +36,12 @@ const router = createBrowserRouter(
   }
 );
 
-// Show error if Privy App ID is missing
 if (!PRIVY_APP_ID && import.meta.env.DEV) {
   console.error(
     "⚠️ Privy App ID is missing!\n" +
-    "Please create a .env file in the root directory with:\n" +
-    "VITE_PRIVY_APP_ID=your_privy_app_id_here\n\n" +
-    "Get your App ID from: https://dashboard.privy.io"
+      "Please create a .env file in the root directory with:\n" +
+      "VITE_PRIVY_APP_ID=your_privy_app_id_here\n\n" +
+      "Get your App ID from: https://dashboard.privy.io"
   );
 }
 
@@ -76,12 +75,39 @@ const App = () => {
               <p className="text-sm text-muted-foreground">No Privy App ID – use placeholder to load app</p>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Set <code className="bg-secondary px-1 rounded">VITE_PRIVY_APP_ID=dev</code> in .env (or any non-empty value) to load the app, then use <strong>Dev Login</strong> in the header to trade without connecting a wallet.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Or get a real App ID from <a href="https://dashboard.privy.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privy Dashboard</a>.
-          </p>
+          <div className="space-y-2 text-sm">
+            <p>To connect Privy, please:</p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>
+                Get your App ID from{" "}
+                <a
+                  href="https://dashboard.privy.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Privy Dashboard
+                </a>
+              </li>
+              <li>
+                Create a <code className="bg-secondary px-1 py-0.5 rounded">.env</code> file in the root directory
+              </li>
+              <li>
+                Add: <code className="bg-secondary px-1 py-0.5 rounded">VITE_PRIVY_APP_ID=your_app_id</code>
+              </li>
+              <li>Restart the dev server</li>
+            </ol>
+          </div>
+          <div className="pt-4 border-t border-border">
+            <a
+              href="https://dashboard.privy.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Get Privy App ID
+            </a>
+          </div>
         </div>
       </div>
     );
