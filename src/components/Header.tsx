@@ -120,6 +120,8 @@ export function Header() {
       case "metamask": return "🦊";
       case "coinbase": return "🔵";
       case "privy_embedded": return "🔷";
+      case "rabby": return "🟡";
+      case "wallet_connect": return "🔗";
       default: return "👛";
     }
   };

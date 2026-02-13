@@ -200,7 +200,13 @@ class ApiClient {
       body: JSON.stringify({ accessToken }),
     });
   }
-
+  
+  async getOnrampUrl(data: { destinationAddress: string }) {
+    return this.request<{ url: string }>("/onramp/url", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 
   // ===== Markets =====
   async getMarkets(params: {

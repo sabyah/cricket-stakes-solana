@@ -5,66 +5,51 @@ import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
 import { CoinbaseIcon } from "@/components/icons/WalletIcons";
 import { TransferCryptoModal } from "@/components/TransferCryptoModal";
+import { apiClient } from "@/lib/api";
+import { CoinbaseOnrampModal } from "@/components/CoinbaseOnrampModal";
 
 interface DepositModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Crypto network icons for Transfer Crypto option
 const CryptoNetworkIcons = () => (
   <div className="flex items-center -space-x-1">
-    {/* Ethereum */}
-    <div className="w-6 h-6 rounded-full bg-[#627EEA] flex items-center justify-center border-2 border-card">
-      <svg className="w-3 h-3" viewBox="0 0 256 417" fill="none">
-        <path fill="#fff" d="M127.961 0l-2.795 9.5v275.668l2.795 2.79 127.962-75.638z"/>
-        <path fill="#fff" fillOpacity="0.6" d="M127.962 0L0 212.32l127.962 75.639V154.158z"/>
-      </svg>
-    </div>
-    {/* Polygon */}
-    <div className="w-6 h-6 rounded-full bg-[#8247E5] flex items-center justify-center border-2 border-card">
-      <span className="text-white text-[8px] font-bold">P</span>
-    </div>
-    {/* Solana */}
+    {/* keep if you want; not enforcing */}
     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center border-2 border-card">
       <span className="text-white text-[8px] font-bold">S</span>
     </div>
-    {/* Arbitrum */}
-    <div className="w-6 h-6 rounded-full bg-[#28A0F0] flex items-center justify-center border-2 border-card">
-      <span className="text-white text-[8px] font-bold">A</span>
-    </div>
-    {/* Base */}
-    <div className="w-6 h-6 rounded-full bg-[#0052FF] flex items-center justify-center border-2 border-card">
-      <span className="text-white text-[8px] font-bold">B</span>
-    </div>
-    {/* More indicator */}
     <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center border-2 border-card">
-      <span className="text-muted-foreground text-[8px] font-bold">+5</span>
+      <span className="text-muted-foreground text-[8px] font-bold">+ </span>
     </div>
   </div>
 );
 
 export function DepositModal({ isOpen, onClose }: DepositModalProps) {
-  const { balance } = useWallet();
+  const { balance, walletAddress } = useWallet();
+
   const [isConnectingExchange, setIsConnectingExchange] = useState(false);
   const [showTransferCrypto, setShowTransferCrypto] = useState(false);
+  const [onrampUrl, setOnrampUrl] = useState<string | null>(null);
 
-  const handleTransferCrypto = () => {
-    setShowTransferCrypto(true);
-  };
-
-  const handleBackFromTransfer = () => {
-    setShowTransferCrypto(false);
-  };
+  const handleTransferCrypto = () => setShowTransferCrypto(true);
+  const handleBackFromTransfer = () => setShowTransferCrypto(false);
 
   const handleConnectExchange = async () => {
+    if (!walletAddress) {
+      toast.error("No wallet address found yet. Please connect/login first.");
+      return;
+    }
+
     setIsConnectingExchange(true);
     try {
-      // For now, just open Coinbase
-      window.open("https://www.coinbase.com/", "_blank");
-      toast.success("Opening Coinbase - connect your account");
-    } catch (err) {
-      toast.error("Failed to connect exchange");
+      // ✅ no chain strictness passed from frontend; backend decides or is configurable
+      const { url } = await apiClient.getOnrampUrl({
+        destinationAddress: walletAddress,
+      });
+      setOnrampUrl(url);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start Coinbase Onramp");
     } finally {
       setIsConnectingExchange(false);
     }
@@ -72,7 +57,6 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
 
   if (!isOpen) return null;
 
-  // Show Transfer Crypto modal if selected
   if (showTransferCrypto) {
     return (
       <TransferCryptoModal
@@ -100,7 +84,6 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
           className="w-full max-w-md bg-card border border-border rounded-2xl overflow-hidden shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="p-6 border-b border-border">
             <div className="flex items-center justify-between">
               <div className="text-center flex-1">
@@ -118,9 +101,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
             </div>
           </div>
 
-          {/* Deposit options */}
           <div className="p-4 space-y-3">
-            {/* Transfer Crypto */}
             <button
               onClick={handleTransferCrypto}
               className="w-full p-4 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 hover:border-primary/50 transition-all duration-200 group"
@@ -139,7 +120,6 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
               </div>
             </button>
 
-            {/* Connect Exchange */}
             <button
               onClick={handleConnectExchange}
               disabled={isConnectingExchange}
@@ -152,7 +132,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                   </div>
                   <div className="text-left">
                     <span className="font-semibold text-foreground">Connect Exchange</span>
-                    <p className="text-sm text-muted-foreground">No limit • 2 min</p>
+                    <p className="text-sm text-muted-foreground">Coinbase Onramp</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -168,13 +148,20 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
             </button>
           </div>
 
-          {/* Footer */}
           <div className="p-4 bg-secondary/30 border-t border-border">
             <p className="text-xs text-muted-foreground text-center">
               More deposit options coming soon
             </p>
           </div>
         </motion.div>
+
+        {onrampUrl && (
+          <CoinbaseOnrampModal
+            isOpen={true}
+            url={onrampUrl}
+            onClose={() => setOnrampUrl(null)}
+          />
+        )}
       </motion.div>
     </AnimatePresence>
   );
