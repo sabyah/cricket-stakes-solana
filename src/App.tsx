@@ -13,6 +13,7 @@ import CreatorTerminal from "./pages/CreatorTerminal";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { MarketsRealtimeSync } from "./components/MarketsRealtimeSync";
+import Waitlist from "./pages/Waitlist";
 
 const queryClient = new QueryClient();
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
@@ -29,13 +30,14 @@ const router = createBrowserRouter(
     { path: "/admin", element: <Admin /> },
     { path: "/admin/login", element: <Admin /> },
     { path: "*", element: <NotFound /> },
+    { path: "/waitlist", element: <Waitlist /> },
   ],
   {
     future: {
       v7_startTransition: true,
       v7_relativeSplatPath: true,
     },
-  }
+  },
 );
 
 if (!PRIVY_APP_ID && import.meta.env.DEV) {
@@ -43,7 +45,7 @@ if (!PRIVY_APP_ID && import.meta.env.DEV) {
     "⚠️ Privy App ID is missing!\n" +
       "Please create a .env file in the root directory with:\n" +
       "VITE_PRIVY_APP_ID=your_privy_app_id_here\n\n" +
-      "Get your App ID from: https://dashboard.privy.io"
+      "Get your App ID from: https://dashboard.privy.io",
   );
 }
 

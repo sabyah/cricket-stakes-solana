@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import svgr from "vite-plugin-svgr";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
@@ -7,7 +8,8 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
+    allowedHosts: true,
   },
   build: {
     rollupOptions: {
@@ -17,11 +19,14 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    svgr(),
+    mode === "development" && componentTagger()
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Polyfill for Privy/bn.js – avoid "buffer externalized for browser" error
       buffer: "buffer",
     },
   },
@@ -29,3 +34,5 @@ export default defineConfig(({ mode }) => ({
     include: ["buffer", "@solana/spl-token"],
   },
 }));
+
+
